@@ -16,22 +16,22 @@ export class AppController {
     try {
       const smtpUser = process.env.SMTP_USER || 'knahhpc@gmail.com';
       const smtpPass = process.env.SMTP_PASS || 'jmtxhhcohlhqqztx';
-
-      const port = parseInt(process.env.SMTP_PORT || '465');
-      const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+      const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+      const port = parseInt(process.env.SMTP_PORT || '587');
 
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        host,
         port,
-        secure,
+        secure: false, // Port 587 STARTTLS for Render cloud compatibility
+        requireTLS: true,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
-        family: 4, // Force IPv4 to fix ENETUNREACH on Render cloud
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
+        family: 4, // Force IPv4 to fix ENETUNREACH on Render
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000,
         tls: {
           rejectUnauthorized: false
         }

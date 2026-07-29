@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { triggerToast } from '../components/Toast';
+import { API_URL } from '../config';
 
 export default function ThankYou() {
   const router = useRouter();

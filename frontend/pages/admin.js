@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { triggerToast } from '../components/Toast';
-
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from '../config';
 
 export default function Admin() {
   const [isAdmin, setIsAdmin] = useState(false);

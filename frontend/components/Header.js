@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-
-const API_URL = 'http://localhost:3001/api';
+import { API_URL } from '../config';
 
 export default function Header() {
   const [currentUser, setCurrentUser] = useState(null);

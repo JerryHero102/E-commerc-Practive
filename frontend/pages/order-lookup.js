@@ -288,10 +288,10 @@ export default function OrderLookup() {
                                 if (o.phuongthucthanhtoan === 'ZaloPay') {
                                   try {
                                     triggerToast('Đang kết nối ZaloPay Gateway...', 'info');
-                                    const res = await fetch(`http://localhost:3001/api/zalopay/create-payment`, {
+                                    const res = await fetch(`${API_URL}/zalopay/create-payment`, {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ donhangID: o.donhangid })
+                                      body: JSON.stringify({ donhangID: o.donhangid, frontendUrl: window.location.origin })
                                     });
                                     const data = await res.json();
                                     if (data.order_url) {

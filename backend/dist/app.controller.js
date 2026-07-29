@@ -28,6 +28,56 @@ let AppController = class AppController {
         console.log(`SUBJECT: ${subject}`);
         console.log(`TEXT CONTENT:\n${textContent}`);
         console.log(`=====================================================\n`);
+        if (process.env.RESEND_API_KEY) {
+            try {
+                const res = await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        from: 'LSBook Store <onboarding@resend.dev>',
+                        to: [to],
+                        subject,
+                        html: htmlContent || textContent.replace(/\n/g, '<br>')
+                    })
+                });
+                const resData = await res.json();
+                if (res.ok) {
+                    console.log(`[EMAIL DISPATCHED VIA RESEND HTTP API TO ${to}] ID: ${resData.id}`);
+                    return;
+                }
+                console.warn('[RESEND HTTP NOTICE]', resData);
+            }
+            catch (httpErr) {
+                console.error('[RESEND HTTP ERROR]', httpErr.message);
+            }
+        }
+        if (process.env.BREVO_API_KEY) {
+            try {
+                const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+                    method: 'POST',
+                    headers: {
+                        'api-key': process.env.BREVO_API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sender: { name: 'LSBook Store', email: process.env.SMTP_USER || 'knahhpc@gmail.com' },
+                        to: [{ email: to }],
+                        subject,
+                        htmlContent: htmlContent || textContent.replace(/\n/g, '<br>')
+                    })
+                });
+                if (res.ok) {
+                    console.log(`[EMAIL DISPATCHED VIA BREVO HTTP API TO ${to}]`);
+                    return;
+                }
+            }
+            catch (httpErr) {
+                console.error('[BREVO HTTP ERROR]', httpErr.message);
+            }
+        }
         try {
             const smtpUser = process.env.SMTP_USER || 'knahhpc@gmail.com';
             const smtpPass = process.env.SMTP_PASS || 'jmtxhhcohlhqqztx';
@@ -42,7 +92,7 @@ let AppController = class AppController {
                     }
                 }
                 catch (dnsErr) {
-                    console.warn('[DNS Warning] Could not resolve IPv4 for smtp.gmail.com, using rawHost');
+                    console.warn('[DNS Warning] Could not resolve IPv4 for smtp.gmail.com');
                 }
             }
             const transporter = nodemailer.createTransport({

@@ -366,25 +366,69 @@ export default function Admin() {
       step: 1,
       time: createdTime,
       type: 'CREATE',
-      statusName: 'Đặt hàng thành công',
+      statusName: 'Khởi tạo đơn hàng',
       message: `Khách hàng [${order.tennguoinhan || 'Khách vãng lai'} - SĐT: ${order.sdtnguoinhan || 'N/A'}] đặt thành công đơn hàng #${orderId} qua hình thức [${pMethod}].`,
       amountText: `+ ${formattedAmount}`,
       amountColor: 'text-indigo-400'
     });
 
-    // Step 2: Payment verification
-    const isPaid = pMethod !== 'COD' || status === 'Đã hoàn thành' || status === 'Đang vận chuyển';
-    logs.push({
-      step: 2,
-      time: createdTime,
-      type: 'PAYMENT',
-      statusName: 'Thanh toán thành công',
-      message: isPaid
-        ? `Giao dịch đã xác thực thanh toán thành công qua Cổng [${pMethod}]. Tiền ghi nhận vào hệ thống.`
-        : `Xác nhận phương thức Thanh toán khi nhận hàng (COD). Tiền sẽ thu trực tiếp khi giao sách.`,
-      amountText: `+ ${formattedAmount}`,
-      amountColor: 'text-indigo-400'
-    });
+    // Step 2: Payment verification log according to exact payment method & status
+    if (pMethod === 'COD') {
+      if (status === 'Đã hoàn thành' || status === 'Đã giao') {
+        logs.push({
+          step: 2,
+          time: createdTime,
+          type: 'PAYMENT',
+          statusName: 'Thanh toán COD thành công',
+          message: `Khách hàng đã thanh toán tiền mặt (${formattedAmount}) cho shipper khi nhận sách.`,
+          amountText: `+ ${formattedAmount}`,
+          amountColor: 'text-emerald-400'
+        });
+      } else {
+        logs.push({
+          step: 2,
+          time: createdTime,
+          type: 'PAYMENT',
+          statusName: 'Thanh toán COD (Chưa thu tiền)',
+          message: `Đơn hàng áp dụng phương thức Thanh toán khi nhận hàng (COD). Tiền sẽ thu trực tiếp khi shipper giao sách.`,
+          amountText: `0 đ (Thu sau)`,
+          amountColor: 'text-indigo-400'
+        });
+      }
+    } else {
+      // ZaloPay / Bank Transfer
+      if (status === 'Chờ thanh toán') {
+        logs.push({
+          step: 2,
+          time: createdTime,
+          type: 'PAYMENT',
+          statusName: 'Chưa thanh toán qua ZaloPay',
+          message: `Giao dịch chưa hoàn tất thanh toán. Đang chờ khách hàng quét mã QR trên cổng ZaloPay.`,
+          amountText: `0 đ (Chờ TT)`,
+          amountColor: 'text-indigo-400'
+        });
+      } else if (status === 'Đã hủy') {
+        logs.push({
+          step: 2,
+          time: createdTime,
+          type: 'PAYMENT',
+          statusName: 'Giao dịch ZaloPay bị hủy / thất bại',
+          message: `Giao dịch thanh toán ZaloPay bị hủy hoặc không thành công.`,
+          amountText: `- ${formattedAmount}`,
+          amountColor: 'text-rose-500'
+        });
+      } else {
+        logs.push({
+          step: 2,
+          time: createdTime,
+          type: 'PAYMENT',
+          statusName: 'Thanh toán ZaloPay thành công',
+          message: `Hệ thống ZaloPay đã xác thực giao dịch thành công (${formattedAmount}). Tiền đã chuyển vào tài khoản cửa hàng.`,
+          amountText: `+ ${formattedAmount}`,
+          amountColor: 'text-emerald-400'
+        });
+      }
+    }
 
     // Step 3: Processing / Confirmation
     if (status !== 'Chờ thanh toán') {
@@ -393,7 +437,7 @@ export default function Admin() {
         time: createdTime,
         type: 'PROCESSING',
         statusName: 'Chờ xác nhận (Duyệt đơn kho)',
-        message: `Đơn hàng nằm trong danh mục [Chờ xác nhận]. Tiền được cộng vào nhóm [Doanh thu Chờ xác nhận].`,
+        message: `Đơn hàng nằm trong danh mục [Chờ xác nhận]. Doanh thu được cộng tạm tính vào [Doanh thu Chờ xác nhận].`,
         amountText: `+ ${formattedAmount}`,
         amountColor: 'text-indigo-400'
       });

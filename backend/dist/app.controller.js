@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const database_service_1 = require("./database.service");
 const crypto_1 = require("crypto");
 const nodemailer = require("nodemailer");
+const dns_1 = require("dns");
 let AppController = class AppController {
     constructor(db) {
         this.db = db;
@@ -30,10 +31,22 @@ let AppController = class AppController {
         try {
             const smtpUser = process.env.SMTP_USER || 'knahhpc@gmail.com';
             const smtpPass = process.env.SMTP_PASS || 'jmtxhhcohlhqqztx';
-            const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+            const rawHost = process.env.SMTP_HOST || 'smtp.gmail.com';
             const port = parseInt(process.env.SMTP_PORT || '587');
+            let resolvedHost = rawHost;
+            if (rawHost === 'smtp.gmail.com') {
+                try {
+                    const ips = await dns_1.promises.resolve4(rawHost);
+                    if (ips && ips.length > 0) {
+                        resolvedHost = ips[0];
+                    }
+                }
+                catch (dnsErr) {
+                    console.warn('[DNS Warning] Could not resolve IPv4 for smtp.gmail.com, using rawHost');
+                }
+            }
             const transporter = nodemailer.createTransport({
-                host,
+                host: resolvedHost,
                 port,
                 secure: false,
                 requireTLS: true,
@@ -41,22 +54,22 @@ let AppController = class AppController {
                     user: smtpUser,
                     pass: smtpPass,
                 },
-                family: 4,
                 connectionTimeout: 15000,
                 greetingTimeout: 15000,
                 socketTimeout: 20000,
                 tls: {
-                    rejectUnauthorized: false
+                    rejectUnauthorized: false,
+                    servername: rawHost
                 }
             });
-            await transporter.sendMail({
+            const info = await transporter.sendMail({
                 from: `"LSBook Store" <${smtpUser}>`,
                 to,
                 subject,
                 text: textContent,
                 html: htmlContent || textContent.replace(/\n/g, '<br>')
             });
-            console.log(`[EMAIL DISPATCHED VIA SMTP TO ${to}]`);
+            console.log(`[EMAIL DISPATCHED VIA SMTP TO ${to}] MessageID: ${info.messageId}`);
         }
         catch (err) {
             console.error(`[EMAIL SEND NOTICE] Failed to send email to ${to}: ${err.message}`);

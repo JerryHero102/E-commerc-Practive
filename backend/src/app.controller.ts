@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpStatus, Htt
 import { DatabaseService } from './database.service';
 import { randomUUID, createHmac } from 'crypto';
 import * as nodemailer from 'nodemailer';
+import { promises as dnsPromises } from 'dns';
 
 @Controller('api')
 export class AppController {
@@ -16,35 +17,48 @@ export class AppController {
     try {
       const smtpUser = process.env.SMTP_USER || 'knahhpc@gmail.com';
       const smtpPass = process.env.SMTP_PASS || 'jmtxhhcohlhqqztx';
-      const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+      const rawHost = process.env.SMTP_HOST || 'smtp.gmail.com';
       const port = parseInt(process.env.SMTP_PORT || '587');
 
+      // Resolve IPv4 address explicitly to prevent ENETUNREACH IPv6 errors on cloud hosting (Render)
+      let resolvedHost = rawHost;
+      if (rawHost === 'smtp.gmail.com') {
+        try {
+          const ips = await dnsPromises.resolve4(rawHost);
+          if (ips && ips.length > 0) {
+            resolvedHost = ips[0];
+          }
+        } catch (dnsErr) {
+          console.warn('[DNS Warning] Could not resolve IPv4 for smtp.gmail.com, using rawHost');
+        }
+      }
+
       const transporter = nodemailer.createTransport({
-        host,
+        host: resolvedHost,
         port,
-        secure: false, // Port 587 STARTTLS for Render cloud compatibility
+        secure: false, // Port 587 STARTTLS
         requireTLS: true,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
-        family: 4, // Force IPv4 to fix ENETUNREACH on Render
         connectionTimeout: 15000,
         greetingTimeout: 15000,
         socketTimeout: 20000,
         tls: {
-          rejectUnauthorized: false
+          rejectUnauthorized: false,
+          servername: rawHost
         }
       } as any);
 
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from: `"LSBook Store" <${smtpUser}>`,
         to,
         subject,
         text: textContent,
         html: htmlContent || textContent.replace(/\n/g, '<br>')
       });
-      console.log(`[EMAIL DISPATCHED VIA SMTP TO ${to}]`);
+      console.log(`[EMAIL DISPATCHED VIA SMTP TO ${to}] MessageID: ${info.messageId}`);
     } catch (err) {
       console.error(`[EMAIL SEND NOTICE] Failed to send email to ${to}: ${err.message}`);
     }

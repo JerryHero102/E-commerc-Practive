@@ -40,9 +40,19 @@ export default function Admin() {
     totalRevenue: 0,
     codRevenue: 0,
     bankRevenue: 0,
+    revenueChoXacNhan: 0,
+    revenueDangVanChuyen: 0,
+    revenueDaHoanThanh: 0,
+    revenueDaHuy: 0,
     counts: { choXacNhan: 0, dangVanChuyen: 0, daHoanThanh: 0, daHuy: 0 },
     topSellingBooks: []
   });
+
+  // Overview Sub-nav & Terminal Log dialog states
+  const [overviewSubTab, setOverviewSubTab] = useState('overview'); // 'overview' | 'per-invoice'
+  const [trackingOrderModal, setTrackingOrderModal] = useState(null); // Order for Terminal log dialog
+  const [perInvoiceSearch, setPerInvoiceSearch] = useState('');
+  const [perInvoiceStatusFilter, setPerInvoiceStatusFilter] = useState('ALL');
 
   // Book Form states
   const [editingBookId, setEditingBookId] = useState(null);
@@ -261,22 +271,42 @@ export default function Admin() {
   };
 
   const computeStats = (ordersList, detailsList, booksList) => {
-    const activeOrders = ordersList.filter(o => o.trangThaiDonHang === 'Đã hoàn thành');
-    const totalRevenue = activeOrders.reduce((sum, o) => sum + parseFloat(o.tongTien), 0);
-    
-    // Revenue by payment method
-    const codRevenue = activeOrders
-      .filter(o => o.phuongthucthanhtoan === 'COD')
-      .reduce((sum, o) => sum + parseFloat(o.tongTien), 0);
+    // Breakdown revenue by status
+    const revenueChoXacNhan = ordersList
+      .filter(o => o.trangThaiDonHang === 'Chờ xác nhận')
+      .reduce((sum, o) => sum + parseFloat(o.tongTien || 0), 0);
 
-    const bankRevenue = activeOrders
+    const revenueDangVanChuyen = ordersList
+      .filter(o => o.trangThaiDonHang === 'Đang vận chuyển')
+      .reduce((sum, o) => sum + parseFloat(o.tongTien || 0), 0);
+
+    const revenueDaHoanThanh = ordersList
+      .filter(o => o.trangThaiDonHang === 'Đã hoàn thành' || o.trangThaiDonHang === 'Đã giao')
+      .reduce((sum, o) => sum + parseFloat(o.tongTien || 0), 0);
+
+    const revenueDaHuy = ordersList
+      .filter(o => o.trangThaiDonHang === 'Đã hủy')
+      .reduce((sum, o) => sum + parseFloat(o.tongTien || 0), 0);
+
+    // Total Revenue formula according to user requirement 2:
+    // (Doanh thu Chờ xác nhận + Doanh thu Đang giao + Doanh thu Đã giao) - Doanh thu Đã hủy
+    const totalRevenue = (revenueChoXacNhan + revenueDangVanChuyen + revenueDaHoanThanh) - revenueDaHuy;
+
+    // Active non-cancelled orders for payment method breakdown
+    const validActiveOrders = ordersList.filter(o => o.trangThaiDonHang !== 'Đã hủy' && o.trangThaiDonHang !== 'Chờ thanh toán');
+    
+    const codRevenue = validActiveOrders
+      .filter(o => o.phuongthucthanhtoan === 'COD')
+      .reduce((sum, o) => sum + parseFloat(o.tongTien || 0), 0);
+
+    const bankRevenue = validActiveOrders
       .filter(o => o.phuongthucthanhtoan !== 'COD')
-      .reduce((sum, o) => sum + parseFloat(o.tongTien), 0);
+      .reduce((sum, o) => sum + parseFloat(o.tongTien || 0), 0);
     
     const counts = {
       choXacNhan: ordersList.filter(o => o.trangThaiDonHang === 'Chờ xác nhận').length,
       dangVanChuyen: ordersList.filter(o => o.trangThaiDonHang === 'Đang vận chuyển').length,
-      daHoanThanh: ordersList.filter(o => o.trangThaiDonHang === 'Đã hoàn thành').length,
+      daHoanThanh: ordersList.filter(o => o.trangThaiDonHang === 'Đã hoàn thành' || o.trangThaiDonHang === 'Đã giao').length,
       daHuy: ordersList.filter(o => o.trangThaiDonHang === 'Đã hủy').length
     };
 
@@ -309,9 +339,106 @@ export default function Admin() {
       totalRevenue,
       codRevenue,
       bankRevenue,
+      revenueChoXacNhan,
+      revenueDangVanChuyen,
+      revenueDaHoanThanh,
+      revenueDaHuy,
       counts,
       topSellingBooks
     });
+  };
+
+  // Helper to generate terminal log entries for an order
+  const generateOrderLog = (order) => {
+    if (!order) return [];
+
+    const orderId = order.donhangid;
+    const amount = parseFloat(order.tongtien || order.tongTien || 0);
+    const formattedAmount = formatPrice(amount);
+    const createdTime = order.ngaydat ? new Date(order.ngaydat).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN');
+    const pMethod = order.phuongthucthanhtoan || 'COD';
+    const status = order.trangThaiDonHang || order.trangthaidonhang || 'Chờ xác nhận';
+
+    const logs = [];
+
+    // Step 1: Order creation
+    logs.push({
+      step: 1,
+      time: createdTime,
+      type: 'CREATE',
+      statusName: 'Đặt hàng thành công',
+      message: `Khách hàng [${order.tennguoinhan || 'Khách vãng lai'} - SĐT: ${order.sdtnguoinhan || 'N/A'}] đặt thành công đơn hàng #${orderId} qua hình thức [${pMethod}].`,
+      amountText: `+ ${formattedAmount}`,
+      amountColor: 'text-emerald-400'
+    });
+
+    // Step 2: Payment verification
+    const isPaid = pMethod !== 'COD' || status === 'Đã hoàn thành' || status === 'Đang vận chuyển';
+    logs.push({
+      step: 2,
+      time: createdTime,
+      type: 'PAYMENT',
+      statusName: 'Thanh toán thành công',
+      message: isPaid
+        ? `Giao dịch đã xác thực thanh toán thành công qua Cổng [${pMethod}]. Tiền ghi nhận vào hệ thống.`
+        : `Xác nhận phương thức Thanh toán khi nhận hàng (COD). Tiền sẽ thu trực tiếp khi giao sách.`,
+      amountText: `+ ${formattedAmount}`,
+      amountColor: 'text-emerald-400'
+    });
+
+    // Step 3: Processing / Confirmation
+    if (status !== 'Chờ thanh toán') {
+      logs.push({
+        step: 3,
+        time: createdTime,
+        type: 'PROCESSING',
+        statusName: 'Chờ xác nhận (Duyệt đơn kho)',
+        message: `Đơn hàng nằm trong danh mục [Chờ xác nhận]. Tiền được cộng vào nhóm [Doanh thu Chờ xác nhận].`,
+        amountText: `+ ${formattedAmount}`,
+        amountColor: 'text-amber-400'
+      });
+    }
+
+    // Step 4: Shipping
+    if (status === 'Đang vận chuyển' || status === 'Đã hoàn thành' || status === 'Đã giao') {
+      logs.push({
+        step: 4,
+        time: createdTime,
+        type: 'SHIPPING',
+        statusName: 'Đang giao hàng (Xuất kho)',
+        message: `Admin đã duyệt đơn và chuyển sang giao hàng tới địa chỉ [${order.diachigiao || 'N/A'}]. Trừ doanh thu [Chờ xác nhận] -> Cộng doanh thu [Đang giao].`,
+        amountText: `+ ${formattedAmount}`,
+        amountColor: 'text-blue-400'
+      });
+    }
+
+    // Step 5: Completed
+    if (status === 'Đã hoàn thành' || status === 'Đã giao') {
+      logs.push({
+        step: 5,
+        time: createdTime,
+        type: 'DELIVERED',
+        statusName: 'Đã giao hàng thành công (Hoàn tất)',
+        message: `Khách hàng nhận hàng thành công! Đơn hoàn tất. Trừ doanh thu [Đang giao] -> Cộng doanh thu [Đã giao].`,
+        amountText: `+ ${formattedAmount}`,
+        amountColor: 'text-emerald-400'
+      });
+    }
+
+    // Step 6: Cancelled
+    if (status === 'Đã hủy') {
+      logs.push({
+        step: 6,
+        time: createdTime,
+        type: 'CANCELLED',
+        statusName: 'Đã hủy đơn hàng (Hoàn tiền)',
+        message: `Hóa đơn #${orderId} đã bị HỦY. Lý do: "${order.lydohuy || order.lyDoHuy || 'Khách hàng/Admin yêu cầu hủy'}". Doanh thu bị TRỪ khỏi hệ thống.`,
+        amountText: `- ${formattedAmount}`,
+        amountColor: 'text-rose-500'
+      });
+    }
+
+    return logs;
   };
 
   // --- Category Actions ---
@@ -863,131 +990,404 @@ export default function Admin() {
         {/* PANEL 1: DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div className="space-y-8 animate-fade-in">
-            <h1 className="text-xl font-black text-gray-900 border-b border-gray-200 pb-3 uppercase tracking-wider">Tổng quan kinh doanh</h1>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              
-              {/* FRAME A: DOANH THU */}
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-6">
-                <div className="flex justify-between items-center border-b border-gray-50 pb-3">
-                  <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Doanh thu cửa hàng</h2>
-                  <span className="text-xxs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-150">Đã hoàn thành</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/40">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Tổng doanh thu</span>
-                    <span className="text-lg font-black text-indigo-700 block mt-1">{formatPrice(stats.totalRevenue)}</span>
-                  </div>
-                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-150">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Tiền mặt (COD)</span>
-                    <span className="text-lg font-black text-gray-750 block mt-1">{formatPrice(stats.codRevenue)}</span>
-                  </div>
-                  <div className="bg-indigo-50/30 rounded-2xl p-4 border border-indigo-100/20">
-                    <span className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider block">Ngân hàng (QR)</span>
-                    <span className="text-lg font-black text-indigo-700 block mt-1">{formatPrice(stats.bankRevenue)}</span>
-                  </div>
-                </div>
+            {/* SUB-NAV BAR FOR DASHBOARD */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 pb-3 gap-4">
+              <div className="flex items-center space-x-2 bg-gray-100/90 p-1.5 rounded-2xl border border-gray-200/60">
+                <button
+                  onClick={() => setOverviewSubTab('overview')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 cursor-pointer ${
+                    overviewSubTab === 'overview'
+                      ? 'bg-white text-indigo-700 shadow-sm border border-gray-100'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span>Tổng quan kinh doanh</span>
+                </button>
+
+                <button
+                  onClick={() => setOverviewSubTab('per-invoice')}
+                  className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center space-x-2 cursor-pointer ${
+                    overviewSubTab === 'per-invoice'
+                      ? 'bg-white text-indigo-700 shadow-sm border border-gray-100'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span>Theo dõi kinh doanh từng hóa đơn</span>
+                </button>
               </div>
 
-              {/* FRAME B: ĐƠN HÀNG */}
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-6">
-                <div className="flex justify-between items-center border-b border-gray-50 pb-3">
-                  <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Trạng thái đơn hàng</h2>
-                  <span className="text-xxs font-bold text-gray-400 uppercase tracking-wider">Tổng hợp số lượng</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/30 text-center">
-                    <span className="text-[10px] text-amber-600 font-bold uppercase block">Chờ duyệt</span>
-                    <span className="text-xl font-black text-amber-600 block mt-1">{stats.counts.choXacNhan} đơn</span>
-                  </div>
-                  <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100/30 text-center">
-                    <span className="text-[10px] text-blue-600 font-bold uppercase block">Đang giao</span>
-                    <span className="text-xl font-black text-blue-600 block mt-1">{stats.counts.dangVanChuyen} đơn</span>
-                  </div>
-                  <div className="bg-green-50/50 rounded-2xl p-4 border border-green-100/30 text-center">
-                    <span className="text-[10px] text-green-600 font-bold uppercase block">Thành công</span>
-                    <span className="text-xl font-black text-green-600 block mt-1">{stats.counts.daHoanThanh} đơn</span>
-                  </div>
-                  <div className="bg-red-50/50 rounded-2xl p-4 border border-red-100/30 text-center">
-                    <span className="text-[10px] text-red-500 font-bold uppercase block">Đã hủy</span>
-                    <span className="text-xl font-black text-red-500 block mt-1">{stats.counts.daHuy} đơn</span>
-                  </div>
-                </div>
+              <div className="text-xxs font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200/60 self-start sm:self-auto flex items-center space-x-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Tự động cập nhật doanh thu theo trạng thái</span>
               </div>
-
             </div>
 
-            {/* Top selling books */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <div>
-                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">🔥 Top Sách bán chạy nhất</h3>
-                  <p className="text-xxs text-gray-400 mt-0.5">Xếp hạng theo tổng số lượng đơn mua thực tế toàn shop.</p>
+            {/* SUB-TAB 1: TỔNG QUAN KINH DOANH */}
+            {overviewSubTab === 'overview' && (
+              <div className="space-y-8 animate-fade-in">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  
+                  {/* FRAME A: DOANH THU */}
+                  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-6">
+                    <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                      <div>
+                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Doanh thu cửa hàng</h2>
+                        <span className="text-[10px] text-gray-400 block mt-0.5">(Chờ xác nhận + Đang giao + Đã giao) - Hủy</span>
+                      </div>
+                      <span className="text-xxs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-150">Kinh doanh ròng</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/40">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Tổng doanh thu</span>
+                        <span className="text-lg font-black text-indigo-700 block mt-1">{formatPrice(stats.totalRevenue)}</span>
+                      </div>
+                      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-150">
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Tiền mặt (COD)</span>
+                        <span className="text-lg font-black text-gray-750 block mt-1">{formatPrice(stats.codRevenue)}</span>
+                      </div>
+                      <div className="bg-indigo-50/30 rounded-2xl p-4 border border-indigo-100/20">
+                        <span className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider block">Ngân hàng (QR)</span>
+                        <span className="text-lg font-black text-indigo-700 block mt-1">{formatPrice(stats.bankRevenue)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FRAME B: ĐƠN HÀNG */}
+                  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-6">
+                    <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                      <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Trạng thái đơn hàng</h2>
+                      <span className="text-xxs font-bold text-gray-400 uppercase tracking-wider">Số lượng & Doanh thu</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/30 text-center">
+                        <span className="text-[10px] text-amber-600 font-bold uppercase block">Chờ duyệt</span>
+                        <span className="text-base font-black text-amber-600 block mt-1">{stats.counts.choXacNhan} đơn</span>
+                        <span className="text-[10px] font-bold text-amber-700 block mt-0.5">+{formatPrice(stats.revenueChoXacNhan)}</span>
+                      </div>
+                      <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100/30 text-center">
+                        <span className="text-[10px] text-blue-600 font-bold uppercase block">Đang giao</span>
+                        <span className="text-base font-black text-blue-600 block mt-1">{stats.counts.dangVanChuyen} đơn</span>
+                        <span className="text-[10px] font-bold text-blue-700 block mt-0.5">+{formatPrice(stats.revenueDangVanChuyen)}</span>
+                      </div>
+                      <div className="bg-green-50/50 rounded-2xl p-4 border border-green-100/30 text-center">
+                        <span className="text-[10px] text-green-600 font-bold uppercase block">Thành công</span>
+                        <span className="text-base font-black text-green-600 block mt-1">{stats.counts.daHoanThanh} đơn</span>
+                        <span className="text-[10px] font-bold text-green-700 block mt-0.5">+{formatPrice(stats.revenueDaHoanThanh)}</span>
+                      </div>
+                      <div className="bg-red-50/50 rounded-2xl p-4 border border-red-100/30 text-center">
+                        <span className="text-[10px] text-red-500 font-bold uppercase block">Đã hủy</span>
+                        <span className="text-base font-black text-red-500 block mt-1">{stats.counts.daHuy} đơn</span>
+                        <span className="text-[10px] font-bold text-red-600 block mt-0.5">-{formatPrice(stats.revenueDaHuy)}</span>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
-                <span className="text-xxs font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-                  {stats.topSellingBooks.length} tác phẩm
-                </span>
-              </div>
 
-              <div className="space-y-3">
-                {stats.topSellingBooks.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic py-4 text-center">Chưa phát sinh dữ liệu bán hàng.</p>
-                ) : (
-                  stats.topSellingBooks.map((item, idx) => {
-                    const maxQty = stats.topSellingBooks[0]?.quantity || 1;
-                    const percent = Math.round((item.quantity / maxQty) * 100);
+                {/* Top selling books */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                    <div>
+                      <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">🔥 Top Sách bán chạy nhất</h3>
+                      <p className="text-xxs text-gray-400 mt-0.5">Xếp hạng theo tổng số lượng đơn mua thực tế toàn shop.</p>
+                    </div>
+                    <span className="text-xxs font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                      {stats.topSellingBooks.length} tác phẩm
+                    </span>
+                  </div>
 
-                    return (
-                      <div key={idx} className="bg-gray-50/50 hover:bg-gray-50 border border-gray-100 rounded-2xl p-3.5 transition-all space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center space-x-3">
-                            {/* Rank badge */}
-                            <span className={`w-7 h-7 rounded-xl font-black text-xs flex items-center justify-center border shadow-2xs ${
-                              idx === 0 ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                              idx === 1 ? 'bg-slate-200 text-slate-700 border-slate-300' :
-                              idx === 2 ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                              'bg-gray-100 text-gray-600 border-gray-200'
-                            }`}>
-                              #{idx + 1}
-                            </span>
+                  <div className="space-y-3">
+                    {stats.topSellingBooks.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic py-4 text-center">Chưa phát sinh dữ liệu bán hàng.</p>
+                    ) : (
+                      stats.topSellingBooks.map((item, idx) => {
+                        const maxQty = stats.topSellingBooks[0]?.quantity || 1;
+                        const percent = Math.round((item.quantity / maxQty) * 100);
 
-                            {/* Book cover image */}
-                            {item.hinhAnh ? (
-                              <img src={item.hinhAnh} alt={item.tenSach} className="w-9 h-11 object-cover rounded-lg border border-gray-200 shadow-2xs" />
-                            ) : (
-                              <div className="w-9 h-11 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xxs font-bold">Bản</div>
-                            )}
+                        return (
+                          <div key={idx} className="bg-gray-50/50 hover:bg-gray-50 border border-gray-100 rounded-2xl p-3.5 transition-all space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center space-x-3">
+                                <span className={`w-7 h-7 rounded-xl font-black text-xs flex items-center justify-center border shadow-2xs ${
+                                  idx === 0 ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                                  idx === 1 ? 'bg-slate-200 text-slate-700 border-slate-300' :
+                                  idx === 2 ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                                  'bg-gray-100 text-gray-600 border-gray-200'
+                                }`}>
+                                  #{idx + 1}
+                                </span>
 
-                            <div>
-                              <h4 className="text-xs font-bold text-gray-900 line-clamp-1">{item.tenSach}</h4>
-                              <p className="text-[10px] text-gray-400 mt-0.5">Đơn giá: <span className="font-bold text-gray-600">{formatPrice(item.giaBan)}</span></p>
+                                {item.hinhAnh ? (
+                                  <img src={item.hinhAnh} alt={item.tenSach} className="w-9 h-11 object-cover rounded-lg border border-gray-200 shadow-2xs" />
+                                ) : (
+                                  <div className="w-9 h-11 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xxs font-bold">Bản</div>
+                                )}
+
+                                <div>
+                                  <h4 className="text-xs font-bold text-gray-900 line-clamp-1">{item.tenSach}</h4>
+                                  <p className="text-[10px] text-gray-400 mt-0.5">Đơn giá: <span className="font-bold text-gray-600">{formatPrice(item.giaBan)}</span></p>
+                                </div>
+                              </div>
+
+                              <div className="text-right flex-shrink-0">
+                                <span className="text-xs font-black text-indigo-700 block">Đã bán: {item.quantity} cuốn</span>
+                                <span className="text-[10px] font-bold text-emerald-600 block mt-0.5">{formatPrice(item.revenue)}</span>
+                              </div>
+                            </div>
+
+                            <div className="w-full bg-gray-200/60 rounded-full h-1.5 overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  idx === 0 ? 'bg-indigo-600' :
+                                  idx === 1 ? 'bg-blue-500' :
+                                  idx === 2 ? 'bg-emerald-500' :
+                                  'bg-gray-400'
+                                }`}
+                                style={{ width: `${percent}%` }}
+                              ></div>
                             </div>
                           </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                          <div className="text-right flex-shrink-0">
-                            <span className="text-xs font-black text-indigo-700 block">Đã bán: {item.quantity} cuốn</span>
-                            <span className="text-[10px] font-bold text-emerald-600 block mt-0.5">{formatPrice(item.revenue)}</span>
-                          </div>
+            {/* SUB-TAB 2: THEO DÕI KINH DOANH TỪNG HÓA ĐƠN */}
+            {overviewSubTab === 'per-invoice' && (
+              <div className="space-y-8 animate-fade-in">
+                
+                {/* STATUS REVENUE CARDS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  
+                  {/* Card 1: Chờ xác nhận */}
+                  <div className="bg-amber-50/60 border border-amber-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xxs font-bold text-amber-700 uppercase tracking-wider">Doanh thu Chờ xác nhận</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    </div>
+                    <p className="text-xl font-black text-amber-700">+{formatPrice(stats.revenueChoXacNhan)}</p>
+                    <p className="text-[10px] text-amber-800 font-semibold">{stats.counts.choXacNhan} hóa đơn đang chờ duyệt kho</p>
+                  </div>
+
+                  {/* Card 2: Đang giao */}
+                  <div className="bg-blue-50/60 border border-blue-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xxs font-bold text-blue-700 uppercase tracking-wider">Doanh thu Đang giao</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    </div>
+                    <p className="text-xl font-black text-blue-700">+{formatPrice(stats.revenueDangVanChuyen)}</p>
+                    <p className="text-[10px] text-blue-800 font-semibold">{stats.counts.dangVanChuyen} hóa đơn đang vận chuyển</p>
+                  </div>
+
+                  {/* Card 3: Đã giao */}
+                  <div className="bg-emerald-50/60 border border-emerald-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xxs font-bold text-emerald-700 uppercase tracking-wider">Doanh thu Đã giao</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    </div>
+                    <p className="text-xl font-black text-emerald-700">+{formatPrice(stats.revenueDaHoanThanh)}</p>
+                    <p className="text-[10px] text-emerald-800 font-semibold">{stats.counts.daHoanThanh} hóa đơn hoàn tất thành công</p>
+                  </div>
+
+                  {/* Card 4: Đã hủy (Trừ) */}
+                  <div className="bg-rose-50/60 border border-rose-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xxs font-bold text-rose-700 uppercase tracking-wider">Hóa đơn Hủy (Trừ tiền)</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                    </div>
+                    <p className="text-xl font-black text-rose-700">-{formatPrice(stats.revenueDaHuy)}</p>
+                    <p className="text-[10px] text-rose-800 font-semibold">{stats.counts.daHuy} hóa đơn bị hủy/hoàn tiền</p>
+                  </div>
+
+                </div>
+
+                {/* STATS REVENUE BREAKDOWN CHART BAR */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                      <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">📊 Phân bổ Doanh thu theo Trạng thái Hóa đơn</h3>
+                      <p className="text-xxs text-gray-400 mt-0.5">Biểu đồ thể hiện tỷ trọng đóng góp của từng trạng thái hóa đơn thực tế.</p>
+                    </div>
+                    <div className="bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-2xl">
+                      <span className="text-xxs text-gray-500 font-bold">Doanh thu ròng toàn shop: </span>
+                      <span className="text-xs font-black text-indigo-700">{formatPrice(stats.totalRevenue)}</span>
+                    </div>
+                  </div>
+
+                  {/* Proportional Segment Bar */}
+                  {(() => {
+                    const sumPositive = (stats.revenueChoXacNhan || 0) + (stats.revenueDangVanChuyen || 0) + (stats.revenueDaHoanThanh || 0) + (stats.revenueDaHuy || 0);
+                    const pctCho = sumPositive > 0 ? Math.round((stats.revenueChoXacNhan / sumPositive) * 100) : 0;
+                    const pctDang = sumPositive > 0 ? Math.round((stats.revenueDangVanChuyen / sumPositive) * 100) : 0;
+                    const pctGiao = sumPositive > 0 ? Math.round((stats.revenueDaHoanThanh / sumPositive) * 100) : 0;
+                    const pctHuy = sumPositive > 0 ? Math.round((stats.revenueDaHuy / sumPositive) * 100) : 0;
+
+                    return (
+                      <div className="space-y-3">
+                        <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
+                          {pctCho > 0 && <div style={{ width: `${pctCho}%` }} className="bg-amber-400 h-full" title={`Chờ xác nhận: ${pctCho}%`} />}
+                          {pctDang > 0 && <div style={{ width: `${pctDang}%` }} className="bg-blue-500 h-full" title={`Đang giao: ${pctDang}%`} />}
+                          {pctGiao > 0 && <div style={{ width: `${pctGiao}%` }} className="bg-emerald-500 h-full" title={`Đã giao: ${pctGiao}%`} />}
+                          {pctHuy > 0 && <div style={{ width: `${pctHuy}%` }} className="bg-rose-500 h-full" title={`Đã hủy: ${pctHuy}%`} />}
                         </div>
 
-                        {/* Relative sales progress bar */}
-                        <div className="w-full bg-gray-200/60 rounded-full h-1.5 overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              idx === 0 ? 'bg-indigo-600' :
-                              idx === 1 ? 'bg-blue-500' :
-                              idx === 2 ? 'bg-emerald-500' :
-                              'bg-gray-400'
-                            }`}
-                            style={{ width: `${percent}%` }}
-                          ></div>
+                        <div className="flex flex-wrap gap-4 text-xxs font-bold text-gray-600 pt-1">
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span><span>Chờ xác nhận: +{formatPrice(stats.revenueChoXacNhan)} ({pctCho}%)</span></span>
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span><span>Đang giao: +{formatPrice(stats.revenueDangVanChuyen)} ({pctDang}%)</span></span>
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span><span>Đã giao: +{formatPrice(stats.revenueDaHoanThanh)} ({pctGiao}%)</span></span>
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span><span>Đã hủy: -{formatPrice(stats.revenueDaHuy)} ({pctHuy}%)</span></span>
                         </div>
                       </div>
                     );
-                  })
-                )}
+                  })()}
+                </div>
+
+                {/* ORDER TABLE: THEO DÕI KINH DOANH TỪNG HÓA ĐƠN */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-4 gap-3">
+                    <div>
+                      <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">📑 Danh sách Theo dõi Doanh thu Từng Hóa đơn</h3>
+                      <p className="text-xxs text-gray-400 mt-0.5">Biến động doanh thu trực tiếp theo từng thao tác duyệt hoặc hủy đơn.</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                      <input
+                        type="text"
+                        placeholder="Tìm theo Mã HD / SĐT..."
+                        value={perInvoiceSearch}
+                        onChange={(e) => setPerInvoiceSearch(e.target.value)}
+                        className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+
+                      <select
+                        value={perInvoiceStatusFilter}
+                        onChange={(e) => setPerInvoiceStatusFilter(e.target.value)}
+                        className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="ALL">Tất cả trạng thái</option>
+                        <option value="Chờ xác nhận">Chờ xác nhận</option>
+                        <option value="Đang vận chuyển">Đang giao</option>
+                        <option value="Đã hoàn thành">Đã giao</option>
+                        <option value="Đã hủy">Đã hủy</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* TABLE CONTENT */}
+                  {(() => {
+                    let filtered = [...orders];
+                    if (perInvoiceSearch.trim()) {
+                      const q = perInvoiceSearch.trim().toLowerCase();
+                      filtered = filtered.filter(o =>
+                        String(o.donhangid).includes(q) ||
+                        (o.sdtnguoinhan && o.sdtnguoinhan.includes(q)) ||
+                        (o.tennguoinhan && o.tennguoinhan.toLowerCase().includes(q))
+                      );
+                    }
+                    if (perInvoiceStatusFilter !== 'ALL') {
+                      filtered = filtered.filter(o => (o.trangThaiDonHang || o.trangthaidonhang) === perInvoiceStatusFilter);
+                    }
+
+                    return (
+                      <div className="overflow-x-auto">
+                        {filtered.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic text-center py-8">Không có dữ liệu hóa đơn nào phù hợp.</p>
+                        ) : (
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="border-b border-gray-100 text-gray-400 font-bold uppercase text-[10px]">
+                                <th className="pb-3">Mã HĐ</th>
+                                <th className="pb-3">Khách hàng</th>
+                                <th className="pb-3">Ngày khởi tạo</th>
+                                <th className="pb-3">Phương thức</th>
+                                <th className="pb-3">Trạng thái</th>
+                                <th className="pb-3 text-right">Doanh thu hóa đơn</th>
+                                <th className="pb-3 text-center">Nhật ký / Log</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 text-gray-700 font-medium">
+                              {filtered.map(o => {
+                                const status = o.trangThaiDonHang || o.trangthaidonhang || 'Chờ xác nhận';
+                                const amount = parseFloat(o.tongtien || o.tongTien || 0);
+
+                                return (
+                                  <tr key={o.donhangid} className="hover:bg-gray-50/60 transition-colors">
+                                    <td className="py-3 font-bold font-mono text-indigo-700">#{o.donhangid}</td>
+                                    <td className="py-3">
+                                      <span className="font-bold text-gray-900 block">{o.tennguoinhan || 'Khách vãng lai'}</span>
+                                      <span className="text-[10px] text-gray-400 font-mono">{o.sdtnguoinhan || 'N/A'}</span>
+                                    </td>
+                                    <td className="py-3 text-[11px] text-gray-500">
+                                      {o.ngaydat ? new Date(o.ngaydat).toLocaleString('vi-VN') : 'N/A'}
+                                    </td>
+                                    <td className="py-3">
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700">
+                                        {o.phuongthucthanhtoan}
+                                      </span>
+                                    </td>
+                                    <td className="py-3">
+                                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                                        status === 'Chờ thanh toán' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                        status === 'Chờ xác nhận' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                        status === 'Đang vận chuyển' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                        status === 'Đã hoàn thành' || status === 'Đã giao' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                        'bg-rose-50 text-rose-700 border border-rose-200'
+                                      }`}>
+                                        {status}
+                                      </span>
+                                    </td>
+                                    
+                                    {/* COLUMN: DOANH THU HÓA ĐƠN */}
+                                    <td className="py-3 text-right">
+                                      {status === 'Đã hủy' ? (
+                                        <span className="font-mono font-black text-rose-600">
+                                          - {formatPrice(amount)}
+                                        </span>
+                                      ) : status === 'Chờ thanh toán' ? (
+                                        <span className="font-mono font-bold text-gray-400">
+                                          0 đ (Tạm tính)
+                                        </span>
+                                      ) : (
+                                        <span className="font-mono font-black text-emerald-600">
+                                          + {formatPrice(amount)}
+                                        </span>
+                                      )}
+                                    </td>
+
+                                    {/* COLUMN: ACTION BUTTON "THEO DÕI" */}
+                                    <td className="py-3 text-center">
+                                      <button
+                                        onClick={() => setTrackingOrderModal(o)}
+                                        className="bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 font-bold px-3 py-1.5 rounded-xl text-xxs transition-all flex items-center space-x-1.5 mx-auto cursor-pointer shadow-2xs"
+                                      >
+                                        <span>📜</span>
+                                        <span>Theo dõi</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
               </div>
-            </div>
+            )}
+
           </div>
         )}
  
@@ -2071,6 +2471,78 @@ export default function Admin() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* TERMINAL LOG DIALOG (THEO DÕI HÓA ĐƠN) */}
+      {trackingOrderModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-950 rounded-3xl p-6 md:p-8 max-w-3xl w-full border border-slate-800 shadow-2xl space-y-6 text-left font-mono max-h-[90vh] overflow-y-auto">
+            
+            {/* Terminal Window Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-2">
+                <span className="w-3.5 h-3.5 rounded-full bg-rose-500 inline-block cursor-pointer hover:opacity-80" title="Đóng" onClick={() => setTrackingOrderModal(null)}></span>
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 inline-block"></span>
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span className="text-xs text-slate-400 ml-2 font-bold font-mono">bash - lsbookstore_order_tracker_#${trackingOrderModal.donhangid}.log</span>
+              </div>
+              <button
+                onClick={() => setTrackingOrderModal(null)}
+                className="text-slate-400 hover:text-white text-xs font-bold px-3 py-1 rounded-lg border border-slate-800 hover:bg-slate-900 transition-all cursor-pointer"
+              >
+                ✖ Đóng [Esc]
+              </button>
+            </div>
+
+            {/* Order Info Bar inside Terminal */}
+            <div className="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 text-xs space-y-1 text-slate-300">
+              <p><span className="text-slate-500">MÃ HÓA ĐƠN:</span> <strong className="text-indigo-400">#{trackingOrderModal.donhangid}</strong> | <span className="text-slate-500">KHÁCH HÀNG:</span> <strong className="text-white">{trackingOrderModal.tennguoinhan || 'Khách vãng lai'}</strong> ({trackingOrderModal.sdtnguoinhan || 'N/A'})</p>
+              <p><span className="text-slate-500">ĐỊA CHỈ NƠI GIAO:</span> {trackingOrderModal.diachigiao || 'N/A'}</p>
+              <p><span className="text-slate-500">TRẠNG THÁI HIỆN TẠI:</span> <span className="font-extrabold uppercase text-amber-400">{trackingOrderModal.trangThaiDonHang || trackingOrderModal.trangthaidonhang}</span> | <span className="text-slate-500">HÌNH THỨC TT:</span> <span className="text-cyan-400 font-bold">{trackingOrderModal.phuongthucthanhtoan}</span></p>
+            </div>
+
+            {/* Terminal Log Output List */}
+            <div className="space-y-3 py-2 border-y border-slate-850">
+              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">$ cat /var/log/orders/order_{trackingOrderModal.donhangid}.log --timeline</p>
+              
+              {generateOrderLog(trackingOrderModal).map((log, idx) => (
+                <div key={idx} className="bg-slate-900/60 hover:bg-slate-900 border border-slate-800 p-3.5 rounded-xl transition-all space-y-1">
+                  <div className="flex flex-wrap items-center justify-between text-xs gap-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-500 text-[10px]">[{log.time}]</span>
+                      <span className="font-bold text-slate-200">LOG-0{log.step}:</span>
+                      <span className="font-extrabold text-cyan-400">{log.statusName}</span>
+                    </div>
+                    <span className={`font-mono font-black text-sm ${log.amountColor}`}>
+                      {log.amountText}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 pl-4 border-l-2 border-slate-700 leading-relaxed mt-1">
+                    {log.message}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Terminal Note explaining status revenue shift */}
+            <div className="bg-indigo-950/40 border border-indigo-900/60 rounded-2xl p-4 text-xs text-indigo-300 space-y-1">
+              <p className="font-bold text-indigo-200">📌 CƠ CHẾ BIẾN ĐỘNG DOANH THU THEO TRẠNG THÁI:</p>
+              <p className="text-slate-300 text-[11px]">
+                Khi Admin chuyển trạng thái hóa đơn này, hệ thống tự động trừ <strong className="text-white">{formatPrice(trackingOrderModal.tongtien || trackingOrderModal.tongTien)}</strong> khỏi nhóm trạng thái trước đó và cộng vào nhóm trạng thái mới. {trackingOrderModal.trangThaiDonHang === 'Đã hủy' ? 'Vì đơn đã bị HỦY, số tiền này được trừ trực tiếp khỏi tổng doanh thu cửa hàng.' : 'Số tiền được cộng vào doanh thu kinh doanh ròng.'}
+              </p>
+            </div>
+
+            {/* Footer Close */}
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setTrackingOrderModal(null)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-all shadow-md cursor-pointer"
+              >
+                Đóng Terminal Log
+              </button>
+            </div>
+
           </div>
         </div>
       )}

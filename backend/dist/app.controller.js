@@ -30,17 +30,20 @@ let AppController = class AppController {
         try {
             const smtpUser = process.env.SMTP_USER || 'knahhpc@gmail.com';
             const smtpPass = process.env.SMTP_PASS || 'jmtxhhcohlhqqztx';
+            const port = parseInt(process.env.SMTP_PORT || '465');
+            const secure = process.env.SMTP_SECURE === 'true' || port === 465;
             const transporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: parseInt(process.env.SMTP_PORT || '587'),
-                secure: false,
+                port,
+                secure,
                 auth: {
                     user: smtpUser,
                     pass: smtpPass,
                 },
-                connectionTimeout: 5000,
-                greetingTimeout: 5000,
-                socketTimeout: 10000,
+                family: 4,
+                connectionTimeout: 10000,
+                greetingTimeout: 10000,
+                socketTimeout: 15000,
                 tls: {
                     rejectUnauthorized: false
                 }

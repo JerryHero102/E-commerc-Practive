@@ -17,7 +17,7 @@ export default function ThankYou() {
     setChecking(true);
     
     // 1. Fetch order details to know exact payment method
-    fetch(`http://localhost:3001/api/donhang`)
+    fetch(`${API_URL}/donhang`)
       .then(res => res.json())
       .then(orders => {
         const found = orders.find(o => String(o.donhangid) === String(orderId));
@@ -27,7 +27,7 @@ export default function ThankYou() {
           
           if (pMethod === 'ZaloPay') {
             // Real-time Query to ZaloPay Server for ZaloPay orders ONLY
-            fetch('http://localhost:3001/api/zalopay/check-status', {
+            fetch(`${API_URL}/zalopay/check-status`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ donhangID: orderId })
@@ -58,10 +58,10 @@ export default function ThankYou() {
   const handleRePayZaloPay = async () => {
     try {
       setChecking(true);
-      const res = await fetch(`http://localhost:3001/api/zalopay/create-payment`, {
+      const res = await fetch(`${API_URL}/zalopay/create-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ donhangID: orderId })
+        body: JSON.stringify({ donhangID: orderId, frontendUrl: window.location.origin })
       });
       const data = await res.json();
       if (data.order_url) {

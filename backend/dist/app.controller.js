@@ -38,6 +38,9 @@ let AppController = class AppController {
                     user: smtpUser,
                     pass: smtpPass,
                 },
+                connectionTimeout: 5000,
+                greetingTimeout: 5000,
+                socketTimeout: 10000,
                 tls: {
                     rejectUnauthorized: false
                 }
@@ -835,7 +838,7 @@ Tổng thanh toán: ${formatPrice(parseFloat(order.tongtien))}`;
 </div>
 <p style="font-size: 13px; color: #64748b;">Mã OTP có hiệu lực trong vòng 15 phút. Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.</p>
 </div>`;
-        await this.sendEmail(targetEmail, subject, textContent, htmlContent);
+        this.sendEmail(targetEmail, subject, textContent, htmlContent).catch(console.error);
         return {
             success: true,
             message: 'Mã OTP đã được gửi thành công đến email của bạn!',

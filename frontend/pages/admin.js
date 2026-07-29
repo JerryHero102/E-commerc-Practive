@@ -2475,14 +2475,12 @@ export default function Admin() {
             {/* Terminal Window Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div className="flex items-center space-x-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-rose-500 inline-block cursor-pointer hover:opacity-80" title="Đóng" onClick={() => setTrackingOrderModal(null)}></span>
-                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 inline-block"></span>
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 inline-block"></span>
-                <span className="text-xs text-slate-400 ml-2 font-bold font-mono">bash - lsbookstore_order_tracker_#${trackingOrderModal.donhangid}.log</span>
+                <span className="text-sm">📜</span>
+                <span className="text-xs text-indigo-300 font-bold font-mono">NHẬT KÝ THEO DÕI HÓA ĐƠN #${trackingOrderModal.donhangid}</span>
               </div>
               <button
                 onClick={() => setTrackingOrderModal(null)}
-                className="text-slate-400 hover:text-white text-xs font-bold px-3 py-1 rounded-lg border border-slate-800 hover:bg-slate-900 transition-all cursor-pointer"
+                className="text-slate-400 hover:text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-800 hover:bg-slate-900 transition-all cursor-pointer"
               >
                 ✖ Đóng [Esc]
               </button>
@@ -2492,30 +2490,46 @@ export default function Admin() {
             <div className="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 text-xs space-y-1 text-slate-300">
               <p><span className="text-slate-500">MÃ HÓA ĐƠN:</span> <strong className="text-indigo-400">#{trackingOrderModal.donhangid}</strong> | <span className="text-slate-500">KHÁCH HÀNG:</span> <strong className="text-white">{trackingOrderModal.tennguoinhan || 'Khách vãng lai'}</strong> ({trackingOrderModal.sdtnguoinhan || 'N/A'})</p>
               <p><span className="text-slate-500">ĐỊA CHỈ NƠI GIAO:</span> {trackingOrderModal.diachigiao || 'N/A'}</p>
-              <p><span className="text-slate-500">TRẠNG THÁI HIỆN TẠI:</span> <span className="font-extrabold uppercase text-amber-400">{trackingOrderModal.trangThaiDonHang || trackingOrderModal.trangthaidonhang}</span> | <span className="text-slate-500">HÌNH THỨC TT:</span> <span className="text-cyan-400 font-bold">{trackingOrderModal.phuongthucthanhtoan}</span></p>
+              <p>
+                <span className="text-slate-500">TRẠNG THÁI HIỆN TẠI:</span>{' '}
+                <span className={`font-extrabold uppercase ${
+                  (trackingOrderModal.trangThaiDonHang || trackingOrderModal.trangthaidonhang) === 'Đã hủy' ? 'text-rose-400' :
+                  (trackingOrderModal.trangThaiDonHang || trackingOrderModal.trangthaidonhang) === 'Đã hoàn thành' || (trackingOrderModal.trangThaiDonHang || trackingOrderModal.trangthaidonhang) === 'Đã giao' ? 'text-emerald-400' :
+                  'text-indigo-400'
+                }`}>
+                  {trackingOrderModal.trangThaiDonHang || trackingOrderModal.trangthaidonhang}
+                </span>{' '}
+                | <span className="text-slate-500">HÌNH THỨC TT:</span> <span className="text-indigo-300 font-bold">{trackingOrderModal.phuongthucthanhtoan}</span>
+              </p>
             </div>
 
             {/* Terminal Log Output List */}
             <div className="space-y-3 py-2 border-y border-slate-850">
               <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">$ cat /var/log/orders/order_{trackingOrderModal.donhangid}.log --timeline</p>
               
-              {generateOrderLog(trackingOrderModal).map((log, idx) => (
-                <div key={idx} className="bg-slate-900/60 hover:bg-slate-900 border border-slate-800 p-3.5 rounded-xl transition-all space-y-1">
-                  <div className="flex flex-wrap items-center justify-between text-xs gap-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-slate-500 text-[10px]">[{log.time}]</span>
-                      <span className="font-bold text-slate-200">LOG-0{log.step}:</span>
-                      <span className="font-extrabold text-cyan-400">{log.statusName}</span>
+              {generateOrderLog(trackingOrderModal).map((log, idx) => {
+                const isCompleteStep = log.type === 'DELIVERED';
+                const isCancelStep = log.type === 'CANCELLED';
+                const titleColor = isCancelStep ? 'text-rose-400' : isCompleteStep ? 'text-emerald-400' : 'text-indigo-400';
+
+                return (
+                  <div key={idx} className="bg-slate-900/60 hover:bg-slate-900 border border-slate-800 p-3.5 rounded-xl transition-all space-y-1">
+                    <div className="flex flex-wrap items-center justify-between text-xs gap-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-slate-500 text-[10px]">[{log.time}]</span>
+                        <span className="font-bold text-slate-400">LOG-0{log.step}:</span>
+                        <span className={`font-extrabold ${titleColor}`}>{log.statusName}</span>
+                      </div>
+                      <span className={`font-mono font-black text-sm ${log.amountColor}`}>
+                        {log.amountText}
+                      </span>
                     </div>
-                    <span className={`font-mono font-black text-sm ${log.amountColor}`}>
-                      {log.amountText}
-                    </span>
+                    <p className="text-xs text-slate-400 pl-4 border-l-2 border-slate-700 leading-relaxed mt-1">
+                      {log.message}
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-400 pl-4 border-l-2 border-slate-700 leading-relaxed mt-1">
-                    {log.message}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Terminal Note explaining status revenue shift */}

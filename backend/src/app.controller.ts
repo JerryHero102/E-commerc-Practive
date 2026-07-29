@@ -936,8 +936,9 @@ Tổng thanh toán: ${formatPrice(parseFloat(order.tongtien))}`;
         [app_trans_id, order.donhangid]
       );
 
+      const frontendUrl = body.frontendUrl || process.env.FRONTEND_URL || 'https://e-commerc-practive.vercel.app';
       const embed_data = JSON.stringify({
-        redirecturl: `http://localhost:3000/thankyou?orderId=${order.donhangid}`,
+        redirecturl: `${frontendUrl}/thankyou?orderId=${order.donhangid}`,
         store_name: 'LSBook Store'
       });
 

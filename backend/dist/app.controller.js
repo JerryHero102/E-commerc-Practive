@@ -801,8 +801,9 @@ Tổng thanh toán: ${formatPrice(parseFloat(order.tongtien))}`;
             const description = `LSBookStore - Thanh toán đơn hàng #${order.donhangid}`;
             const bank_code = '';
             await this.db.query('UPDATE ThanhToan SET maThanhToan = $1 WHERE donhangID = $2', [app_trans_id, order.donhangid]);
+            const frontendUrl = body.frontendUrl || process.env.FRONTEND_URL || 'https://e-commerc-practive.vercel.app';
             const embed_data = JSON.stringify({
-                redirecturl: `http://localhost:3000/thankyou?orderId=${order.donhangid}`,
+                redirecturl: `${frontendUrl}/thankyou?orderId=${order.donhangid}`,
                 store_name: 'LSBook Store'
             });
             const itemsStr = JSON.stringify(items);

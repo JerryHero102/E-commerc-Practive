@@ -132,7 +132,7 @@ export default function Checkout() {
             const zlpRes = await fetch(`${API_URL}/zalopay/create-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ donhangID: order.donhangID })
+              body: JSON.stringify({ donhangID: order.donhangID, frontendUrl: window.location.origin })
             });
             const zlpData = await zlpRes.json();
             if (zlpData.order_url) {

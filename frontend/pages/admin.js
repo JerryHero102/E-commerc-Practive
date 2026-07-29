@@ -369,7 +369,7 @@ export default function Admin() {
       statusName: 'Đặt hàng thành công',
       message: `Khách hàng [${order.tennguoinhan || 'Khách vãng lai'} - SĐT: ${order.sdtnguoinhan || 'N/A'}] đặt thành công đơn hàng #${orderId} qua hình thức [${pMethod}].`,
       amountText: `+ ${formattedAmount}`,
-      amountColor: 'text-emerald-400'
+      amountColor: 'text-indigo-400'
     });
 
     // Step 2: Payment verification
@@ -383,7 +383,7 @@ export default function Admin() {
         ? `Giao dịch đã xác thực thanh toán thành công qua Cổng [${pMethod}]. Tiền ghi nhận vào hệ thống.`
         : `Xác nhận phương thức Thanh toán khi nhận hàng (COD). Tiền sẽ thu trực tiếp khi giao sách.`,
       amountText: `+ ${formattedAmount}`,
-      amountColor: 'text-emerald-400'
+      amountColor: 'text-indigo-400'
     });
 
     // Step 3: Processing / Confirmation
@@ -395,7 +395,7 @@ export default function Admin() {
         statusName: 'Chờ xác nhận (Duyệt đơn kho)',
         message: `Đơn hàng nằm trong danh mục [Chờ xác nhận]. Tiền được cộng vào nhóm [Doanh thu Chờ xác nhận].`,
         amountText: `+ ${formattedAmount}`,
-        amountColor: 'text-amber-400'
+        amountColor: 'text-indigo-400'
       });
     }
 
@@ -408,7 +408,7 @@ export default function Admin() {
         statusName: 'Đang giao hàng (Xuất kho)',
         message: `Admin đã duyệt đơn và chuyển sang giao hàng tới địa chỉ [${order.diachigiao || 'N/A'}]. Trừ doanh thu [Chờ xác nhận] -> Cộng doanh thu [Đang giao].`,
         amountText: `+ ${formattedAmount}`,
-        amountColor: 'text-blue-400'
+        amountColor: 'text-indigo-400'
       });
     }
 
@@ -1066,25 +1066,25 @@ export default function Admin() {
                       <span className="text-xxs font-bold text-gray-400 uppercase tracking-wider">Số lượng & Doanh thu</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100/30 text-center">
-                        <span className="text-[10px] text-amber-600 font-bold uppercase block">Chờ duyệt</span>
-                        <span className="text-base font-black text-amber-600 block mt-1">{stats.counts.choXacNhan} đơn</span>
-                        <span className="text-[10px] font-bold text-amber-700 block mt-0.5">+{formatPrice(stats.revenueChoXacNhan)}</span>
+                      <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50 text-center">
+                        <span className="text-[10px] text-indigo-700 font-bold uppercase block">Chờ duyệt</span>
+                        <span className="text-base font-black text-indigo-700 block mt-1">{stats.counts.choXacNhan} đơn</span>
+                        <span className="text-[10px] font-bold text-indigo-600 block mt-0.5">+{formatPrice(stats.revenueChoXacNhan)}</span>
                       </div>
-                      <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100/30 text-center">
-                        <span className="text-[10px] text-blue-600 font-bold uppercase block">Đang giao</span>
-                        <span className="text-base font-black text-blue-600 block mt-1">{stats.counts.dangVanChuyen} đơn</span>
-                        <span className="text-[10px] font-bold text-blue-700 block mt-0.5">+{formatPrice(stats.revenueDangVanChuyen)}</span>
+                      <div className="bg-indigo-50/50 rounded-2xl p-4 border border-indigo-100/50 text-center">
+                        <span className="text-[10px] text-indigo-700 font-bold uppercase block">Đang giao</span>
+                        <span className="text-base font-black text-indigo-700 block mt-1">{stats.counts.dangVanChuyen} đơn</span>
+                        <span className="text-[10px] font-bold text-indigo-600 block mt-0.5">+{formatPrice(stats.revenueDangVanChuyen)}</span>
                       </div>
-                      <div className="bg-green-50/50 rounded-2xl p-4 border border-green-100/30 text-center">
-                        <span className="text-[10px] text-green-600 font-bold uppercase block">Thành công</span>
-                        <span className="text-base font-black text-green-600 block mt-1">{stats.counts.daHoanThanh} đơn</span>
-                        <span className="text-[10px] font-bold text-green-700 block mt-0.5">+{formatPrice(stats.revenueDaHoanThanh)}</span>
+                      <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100/50 text-center">
+                        <span className="text-[10px] text-emerald-700 font-bold uppercase block">Thành công</span>
+                        <span className="text-base font-black text-emerald-700 block mt-1">{stats.counts.daHoanThanh} đơn</span>
+                        <span className="text-[10px] font-bold text-emerald-600 block mt-0.5">+{formatPrice(stats.revenueDaHoanThanh)}</span>
                       </div>
-                      <div className="bg-red-50/50 rounded-2xl p-4 border border-red-100/30 text-center">
-                        <span className="text-[10px] text-red-500 font-bold uppercase block">Đã hủy</span>
-                        <span className="text-base font-black text-red-500 block mt-1">{stats.counts.daHuy} đơn</span>
-                        <span className="text-[10px] font-bold text-red-600 block mt-0.5">-{formatPrice(stats.revenueDaHuy)}</span>
+                      <div className="bg-rose-50/50 rounded-2xl p-4 border border-rose-100/50 text-center">
+                        <span className="text-[10px] text-rose-600 font-bold uppercase block">Đã hủy</span>
+                        <span className="text-base font-black text-rose-600 block mt-1">{stats.counts.daHuy} đơn</span>
+                        <span className="text-[10px] font-bold text-rose-600 block mt-0.5">-{formatPrice(stats.revenueDaHuy)}</span>
                       </div>
                     </div>
                   </div>
@@ -1115,12 +1115,7 @@ export default function Admin() {
                           <div key={idx} className="bg-gray-50/50 hover:bg-gray-50 border border-gray-100 rounded-2xl p-3.5 transition-all space-y-2">
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center space-x-3">
-                                <span className={`w-7 h-7 rounded-xl font-black text-xs flex items-center justify-center border shadow-2xs ${
-                                  idx === 0 ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                                  idx === 1 ? 'bg-slate-200 text-slate-700 border-slate-300' :
-                                  idx === 2 ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                                  'bg-gray-100 text-gray-600 border-gray-200'
-                                }`}>
+                                <span className="w-7 h-7 rounded-xl font-black text-xs flex items-center justify-center border shadow-2xs bg-indigo-50 text-indigo-700 border-indigo-100">
                                   #{idx + 1}
                                 </span>
 
@@ -1138,18 +1133,13 @@ export default function Admin() {
 
                               <div className="text-right flex-shrink-0">
                                 <span className="text-xs font-black text-indigo-700 block">Đã bán: {item.quantity} cuốn</span>
-                                <span className="text-[10px] font-bold text-emerald-600 block mt-0.5">{formatPrice(item.revenue)}</span>
+                                <span className="text-[10px] font-bold text-indigo-600 block mt-0.5">{formatPrice(item.revenue)}</span>
                               </div>
                             </div>
 
                             <div className="w-full bg-gray-200/60 rounded-full h-1.5 overflow-hidden">
                               <div 
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  idx === 0 ? 'bg-indigo-600' :
-                                  idx === 1 ? 'bg-blue-500' :
-                                  idx === 2 ? 'bg-emerald-500' :
-                                  'bg-gray-400'
-                                }`}
+                                className="h-full rounded-full transition-all duration-500 bg-indigo-600"
                                 style={{ width: `${percent}%` }}
                               ></div>
                             </div>
@@ -1170,26 +1160,26 @@ export default function Admin() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   
                   {/* Card 1: Chờ xác nhận */}
-                  <div className="bg-amber-50/60 border border-amber-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-3xl p-5 shadow-2xs space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-xxs font-bold text-amber-700 uppercase tracking-wider">Doanh thu Chờ xác nhận</span>
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      <span className="text-xxs font-bold text-indigo-700 uppercase tracking-wider">Doanh thu Chờ xác nhận</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
                     </div>
-                    <p className="text-xl font-black text-amber-700">+{formatPrice(stats.revenueChoXacNhan)}</p>
-                    <p className="text-[10px] text-amber-800 font-semibold">{stats.counts.choXacNhan} hóa đơn đang chờ duyệt kho</p>
+                    <p className="text-xl font-black text-indigo-700">+{formatPrice(stats.revenueChoXacNhan)}</p>
+                    <p className="text-[10px] text-indigo-800 font-semibold">{stats.counts.choXacNhan} hóa đơn đang chờ duyệt kho</p>
                   </div>
 
                   {/* Card 2: Đang giao */}
-                  <div className="bg-blue-50/60 border border-blue-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-3xl p-5 shadow-2xs space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-xxs font-bold text-blue-700 uppercase tracking-wider">Doanh thu Đang giao</span>
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                      <span className="text-xxs font-bold text-indigo-700 uppercase tracking-wider">Doanh thu Đang giao</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
                     </div>
-                    <p className="text-xl font-black text-blue-700">+{formatPrice(stats.revenueDangVanChuyen)}</p>
-                    <p className="text-[10px] text-blue-800 font-semibold">{stats.counts.dangVanChuyen} hóa đơn đang vận chuyển</p>
+                    <p className="text-xl font-black text-indigo-700">+{formatPrice(stats.revenueDangVanChuyen)}</p>
+                    <p className="text-[10px] text-indigo-800 font-semibold">{stats.counts.dangVanChuyen} hóa đơn đang vận chuyển</p>
                   </div>
 
-                  {/* Card 3: Đã giao */}
+                  {/* Card 3: Đã giao (Hoàn thành) */}
                   <div className="bg-emerald-50/60 border border-emerald-200/70 rounded-3xl p-5 shadow-2xs space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-xxs font-bold text-emerald-700 uppercase tracking-wider">Doanh thu Đã giao</span>
@@ -1235,16 +1225,15 @@ export default function Admin() {
                     return (
                       <div className="space-y-3">
                         <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
-                          {pctCho > 0 && <div style={{ width: `${pctCho}%` }} className="bg-amber-400 h-full" title={`Chờ xác nhận: ${pctCho}%`} />}
-                          {pctDang > 0 && <div style={{ width: `${pctDang}%` }} className="bg-blue-500 h-full" title={`Đang giao: ${pctDang}%`} />}
+                          {(pctCho + pctDang) > 0 && <div style={{ width: `${pctCho + pctDang}%` }} className="bg-indigo-600 h-full" title={`Chờ xác nhận & Đang giao: ${pctCho + pctDang}%`} />}
                           {pctGiao > 0 && <div style={{ width: `${pctGiao}%` }} className="bg-emerald-500 h-full" title={`Đã giao: ${pctGiao}%`} />}
                           {pctHuy > 0 && <div style={{ width: `${pctHuy}%` }} className="bg-rose-500 h-full" title={`Đã hủy: ${pctHuy}%`} />}
                         </div>
 
                         <div className="flex flex-wrap gap-4 text-xxs font-bold text-gray-600 pt-1">
-                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span><span>Chờ xác nhận: +{formatPrice(stats.revenueChoXacNhan)} ({pctCho}%)</span></span>
-                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span><span>Đang giao: +{formatPrice(stats.revenueDangVanChuyen)} ({pctDang}%)</span></span>
-                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span><span>Đã giao: +{formatPrice(stats.revenueDaHoanThanh)} ({pctGiao}%)</span></span>
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block"></span><span>Chờ xác nhận: +{formatPrice(stats.revenueChoXacNhan)} ({pctCho}%)</span></span>
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block"></span><span>Đang giao: +{formatPrice(stats.revenueDangVanChuyen)} ({pctDang}%)</span></span>
+                          <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span><span>Đã giao (Hoàn thành): +{formatPrice(stats.revenueDaHoanThanh)} ({pctGiao}%)</span></span>
                           <span className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span><span>Đã hủy: -{formatPrice(stats.revenueDaHuy)} ({pctHuy}%)</span></span>
                         </div>
                       </div>
@@ -1277,7 +1266,7 @@ export default function Admin() {
                         <option value="ALL">Tất cả trạng thái</option>
                         <option value="Chờ xác nhận">Chờ xác nhận</option>
                         <option value="Đang vận chuyển">Đang giao</option>
-                        <option value="Đã hoàn thành">Đã giao</option>
+                        <option value="Đã hoàn thành">Đã giao (Thành công)</option>
                         <option value="Đã hủy">Đã hủy</option>
                       </select>
                     </div>
@@ -1319,6 +1308,8 @@ export default function Admin() {
                               {filtered.map(o => {
                                 const status = o.trangThaiDonHang || o.trangthaidonhang || 'Chờ xác nhận';
                                 const amount = parseFloat(o.tongtien || o.tongTien || 0);
+                                const isCompleted = status === 'Đã hoàn thành' || status === 'Đã giao';
+                                const isCancelled = status === 'Đã hủy';
 
                                 return (
                                   <tr key={o.donhangid} className="hover:bg-gray-50/60 transition-colors">
@@ -1337,11 +1328,9 @@ export default function Admin() {
                                     </td>
                                     <td className="py-3">
                                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                                        status === 'Chờ thanh toán' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                        status === 'Chờ xác nhận' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                        status === 'Đang vận chuyển' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                        status === 'Đã hoàn thành' || status === 'Đã giao' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                        'bg-rose-50 text-rose-700 border border-rose-200'
+                                        isCompleted ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                        isCancelled ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                        'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                       }`}>
                                         {status}
                                       </span>
@@ -1349,7 +1338,7 @@ export default function Admin() {
                                     
                                     {/* COLUMN: DOANH THU HÓA ĐƠN */}
                                     <td className="py-3 text-right">
-                                      {status === 'Đã hủy' ? (
+                                      {isCancelled ? (
                                         <span className="font-mono font-black text-rose-600">
                                           - {formatPrice(amount)}
                                         </span>
@@ -1357,8 +1346,12 @@ export default function Admin() {
                                         <span className="font-mono font-bold text-gray-400">
                                           0 đ (Tạm tính)
                                         </span>
-                                      ) : (
+                                      ) : isCompleted ? (
                                         <span className="font-mono font-black text-emerald-600">
+                                          + {formatPrice(amount)}
+                                        </span>
+                                      ) : (
+                                        <span className="font-mono font-black text-indigo-700">
                                           + {formatPrice(amount)}
                                         </span>
                                       )}

@@ -6,12 +6,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
 
   async onModuleInit() {
-    this.pool = new Pool({
-      user: 'postgres',
-      host: 'localhost',
-      database: 'lsbookstore',
-      port: 5432,
-    });
+    const connectionConfig = process.env.DATABASE_URL
+      ? { connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false } }
+      : {
+          user: process.env.DB_USER || 'postgres',
+          host: process.env.DB_HOST || 'localhost',
+          database: process.env.DB_NAME || 'lsbookstore',
+          password: process.env.DB_PASSWORD || undefined,
+          port: parseInt(process.env.DB_PORT || '5432'),
+        };
+
+    this.pool = new Pool(connectionConfig);
 
     try {
       await this.pool.query(`

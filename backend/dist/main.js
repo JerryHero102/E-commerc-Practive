@@ -10,8 +10,9 @@ async function bootstrap() {
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
     });
-    await app.listen(3001);
-    console.log('LSBook Store NestJS backend server running at http://localhost:3001');
+    const port = process.env.PORT || 3001;
+    await app.listen(port);
+    console.log(`LSBook Store NestJS backend server running at http://localhost:${port}`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map
